@@ -16,8 +16,8 @@ Flexible developer oriented configuration library.
 [codecov-link]: https://codecov.io/gh/MainDen/go-config/tree/main
 [goreportcard-badge]: https://goreportcard.com/badge/github.com/MainDen/go-config
 [goreportcard-link]: https://goreportcard.com/report/github.com/MainDen/go-config
-[go-dev-badge]: https://img.shields.io/badge/go-reference-blue?logo=go&logoColor=white
-[go-dev-link]: https://pkg.go.dev/github.com/MainDen/go-config
+[go-dev-badge]: https://img.shields.io/badge/go%20doc-reference-blue?logo=go&logoColor=white
+[go-dev-link]: https://pkg.go.dev/github.com/mainden/go-config
 [repo-size-badge]: https://img.shields.io/github/repo-size/MainDen/go-config?logo=github
 [repo-size-link]: https://github.com/MainDen/go-config/tree/main
 [paypal-badge]: https://img.shields.io/badge/donate-paypal-blue?logo=paypal
