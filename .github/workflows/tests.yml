@@ -1,0 +1,39 @@
+name: tests
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+jobs:
+  go_test_latest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.3
+          check-latest: true
+          cache: true
+      - name: Run tests
+        run: go test -cover -coverprofile coverage.txt ./...
+      - name: Upload coverage reports
+        if: github.event_name == 'push'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        uses: codecov/codecov-action@v3
+  go_test_minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.10.8
+          check-latest: false
+          cache: true
+      - name: Run tests
+        run: go test ./...
