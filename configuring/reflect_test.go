@@ -1,4 +1,4 @@
-package configurator
+package configuring
 
 import (
 	"reflect"
@@ -206,21 +206,21 @@ func TestCallMethodBool(t *testing.T) {
 		},
 		{
 			TestCase:             "No method",
-			ExpectedErrorMessage: "type 'configurator.testType' has no method 'Invalid'",
+			ExpectedErrorMessage: "type 'configuring.testType' has no method 'Invalid'",
 			MethodName:           "Invalid",
 			Target:               &testType{},
 			Value:                &testType{},
 		},
 		{
 			TestCase:             "Invalid method of value",
-			ExpectedErrorMessage: "method 'Quuux' of type 'configurator.testType' should accept argument of type 'configurator.testType' or '*configurator.testType' and should return result of type 'bool'",
+			ExpectedErrorMessage: "method 'Quuux' of type 'configuring.testType' should accept argument of type 'configuring.testType' or '*configuring.testType' and should return result of type 'bool'",
 			MethodName:           "Quuux",
 			Target:               &testType{},
 			Value:                &testType{},
 		},
 		{
 			TestCase:             "Invalid method of pointer",
-			ExpectedErrorMessage: "method 'Quuuux' of type '*configurator.testType' should accept argument of type 'configurator.testType' or '*configurator.testType' and should return result of type 'bool'",
+			ExpectedErrorMessage: "method 'Quuuux' of type '*configuring.testType' should accept argument of type 'configuring.testType' or '*configuring.testType' and should return result of type 'bool'",
 			MethodName:           "Quuuux",
 			Target:               &testType{},
 			Value:                &testType{},
@@ -255,27 +255,27 @@ func TestCallMethodBool(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		rTarget, rValue := indirect(tc.Target, tc.Value)
+		rTarget, rValue := indirectPair(tc.Target, tc.Value)
 		if result, err := callMethodBool(tc.MethodName, rTarget, rValue); (err == nil) != (tc.ExpectedErrorMessage == "") || err != nil && err.Error() != tc.ExpectedErrorMessage || result != tc.ExpectedResult {
 			t.Errorf("TestCase '%v': expected '%v', was '%v'", tc.TestCase, []interface{}{tc.ExpectedResult, tc.ExpectedErrorMessage}, []interface{}{result, err})
 		}
 	}
 }
 
-func TestIndirect(t *testing.T) {
+func TestIndirectPair(t *testing.T) {
 	i1, i2 := 1, 2
 	pi1, pi2 := &i1, &i2
 	ppi1, ppi2 := &pi1, &pi2
-	if ri1, ri2 := indirect(i1, i2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
+	if ri1, ri2 := indirectPair(i1, i2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
 		t.Errorf("expected '%v', was '%v'", reflect.Int, ri1.Kind())
 	}
-	if ri1, ri2 := indirect(pi1, pi2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
+	if ri1, ri2 := indirectPair(pi1, pi2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
 		t.Errorf("expected '%v', was '%v'", reflect.Int, ri1.Kind())
 	}
-	if ri1, ri2 := indirect(ppi1, ppi2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
+	if ri1, ri2 := indirectPair(ppi1, ppi2); ri1.Kind() != reflect.Int && ri2.Kind() != reflect.Int {
 		t.Errorf("expected '%v', was '%v'", reflect.Int, ri1.Kind())
 	}
-	if ri1, ri2 := indirect(new(*int), new(*int)); ri1.Kind() != reflect.Ptr && ri2.Kind() != reflect.Ptr {
+	if ri1, ri2 := indirectPair(new(*int), new(*int)); ri1.Kind() != reflect.Ptr && ri2.Kind() != reflect.Ptr {
 		t.Errorf("expected '%v', was '%v'", reflect.Ptr, ri1.Kind())
 	}
 }
@@ -322,12 +322,12 @@ func TestHasEqual(t *testing.T) {
 }
 
 func TestCompareByMethod(t *testing.T) {
-	ri1, ri2 := indirect(1, 1)
+	ri1, ri2 := indirectPair(1, 1)
 	if result, ok := compareByMethod("Equal", ri1, ri2); ok || result != 0 {
 		t.Errorf("expected '%v', was '%v'", []interface{}{0, false}, []interface{}{result, ok})
 	}
 	t1, t2 := time.Unix(0, 1).UTC(), time.Unix(0, 1).In(time.FixedZone("", int(time.Hour)))
-	rt1, rt2 := indirect(t1, t2)
+	rt1, rt2 := indirectPair(t1, t2)
 	if result, ok := compareByMethod("Before", rt1, rt2); !ok || result != 0 {
 		t.Errorf("expected '%v', was '%v'", []interface{}{0, true}, []interface{}{result, ok})
 	}
@@ -341,7 +341,7 @@ func TestCompareByMethod(t *testing.T) {
 		t.Errorf("expected '%v', was '%v'", []interface{}{0, false}, []interface{}{result, ok})
 	}
 	t1, t2 = time.Unix(0, 1).UTC(), time.Unix(0, 2).In(time.FixedZone("", int(time.Hour)))
-	rt1, rt2 = indirect(t1, t2)
+	rt1, rt2 = indirectPair(t1, t2)
 	if result, ok := compareByMethod("Before", rt1, rt2); !ok || result != -1 {
 		t.Errorf("expected '%v', was '%v'", []interface{}{-1, true}, []interface{}{result, ok})
 	}
@@ -357,12 +357,12 @@ func TestCompareByMethod(t *testing.T) {
 }
 
 func TestCompareByMethods(t *testing.T) {
-	ri1, ri2 := indirect(1, 1)
+	ri1, ri2 := indirectPair(1, 1)
 	if result, ok := compareByMethods([]string{"Same", "Equal"}, ri1, ri2); ok || result != 0 {
 		t.Errorf("expected '%v', was '%v'", []interface{}{0, false}, []interface{}{result, ok})
 	}
 	t1, t2 := time.Unix(0, 1).UTC(), time.Unix(0, 2).In(time.FixedZone("", int(time.Hour)))
-	rt1, rt2 := indirect(t1, t2)
+	rt1, rt2 := indirectPair(t1, t2)
 	if result, ok := compareByMethods([]string{"Lower", "Before"}, rt1, rt2); !ok || result != -1 {
 		t.Errorf("expected '%v', was '%v'", []interface{}{-1, true}, []interface{}{result, ok})
 	}

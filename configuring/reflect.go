@@ -1,4 +1,4 @@
-package configurator
+package configuring
 
 import (
 	"errors"
@@ -106,7 +106,70 @@ func callMethodBool(methodName string, rTarget reflect.Value, rValue reflect.Val
 	return false, fmt.Errorf("type '%v' has no method '%v'", rTargetType.String(), methodName)
 }
 
-func indirect(target interface{}, value interface{}) (reflect.Value, reflect.Value) {
+func beWithLength(target interface{}) error {
+	rTarget := indirect(target)
+	rTargetType := reflect.TypeOf(target)
+	switch rTarget.Kind() {
+	case reflect.Slice:
+	case reflect.Array:
+	case reflect.Chan:
+	case reflect.Map:
+	case reflect.String:
+	default:
+		return fmt.Errorf("argument of type '%v' should has length", rTargetType.String())
+	}
+	return nil
+}
+
+func beEnumerable(target interface{}) error {
+	rTarget := indirect(target)
+	rTargetType := reflect.TypeOf(target)
+	switch rTarget.Kind() {
+	case reflect.Slice:
+	case reflect.Array:
+	case reflect.Map:
+	case reflect.String:
+	default:
+		return fmt.Errorf("argument of type '%v' should be enumerable", rTargetType.String())
+	}
+	return nil
+}
+
+func getElements(target interface{}) []interface{} {
+	rTarget := indirect(target)
+	length := rTarget.Len()
+	if length == 0 {
+		return nil
+	}
+	if rTarget.Kind() == reflect.Map {
+		keys := rTarget.MapKeys()
+		result := make([]interface{}, len(keys))
+		for i, key := range keys {
+			result[i] = rTarget.MapIndex(key).Interface()
+		}
+		return result
+	}
+	result := make([]interface{}, length)
+	for i := 0; i < length; i++ {
+		result[i] = rTarget.Index(i).Interface()
+	}
+	return result
+}
+
+func getLength(target interface{}) int {
+	rTarget := indirect(target)
+	return rTarget.Len()
+}
+
+func indirect(target interface{}) reflect.Value {
+	rTarget := reflect.ValueOf(target)
+	for rTarget.Kind() == reflect.Ptr && !rTarget.IsNil() {
+		rTarget = rTarget.Elem()
+	}
+	return rTarget
+}
+
+func indirectPair(target interface{}, value interface{}) (reflect.Value, reflect.Value) {
 	rTarget := reflect.ValueOf(target)
 	rValue := reflect.ValueOf(value)
 	for rTarget.Kind() == reflect.Ptr && !rTarget.IsNil() && !rValue.IsNil() {
@@ -117,7 +180,7 @@ func indirect(target interface{}, value interface{}) (reflect.Value, reflect.Val
 }
 
 func equal(target interface{}, value interface{}) bool {
-	rTarget, rValue := indirect(target, value)
+	rTarget, rValue := indirectPair(target, value)
 	for _, methodName := range EqualMethodNames {
 		if equal, err := callMethodBool(methodName, rTarget, rValue); err == nil {
 			return equal
@@ -166,7 +229,7 @@ func compareByMethods(lowerMethodNames []string, rTarget reflect.Value, rValue r
 }
 
 func compare(target interface{}, value interface{}) (int, error) {
-	rTarget, rValue := indirect(target, value)
+	rTarget, rValue := indirectPair(target, value)
 	if result, ok := compareByMethods(LowerMethodNames, rTarget, rValue); ok {
 		return result, nil
 	}

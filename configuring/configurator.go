@@ -1,4 +1,4 @@
-package configurator
+package configuring
 
 import (
 	"context"
@@ -9,8 +9,12 @@ import (
 
 var (
 	Default = NewConfigurator().WithLogger(log.Printf)
-	Secret  = NewConfigurator().WithLogger(log.Printf).WithLogSecret()
+	Secret  = NewConfigurator().WithLogger(log.Printf).Secret()
 )
+
+type Validator interface {
+	Validate(target interface{}) error
+}
 
 type Configurator struct {
 	ctx            context.Context
@@ -19,13 +23,16 @@ type Configurator struct {
 	logChangesOnly bool
 	logValueFormat string
 
-	minValue         interface{}
-	maxValue         interface{}
-	allowedValues    []interface{}
-	disallowedValues []interface{}
-	defaultValue     interface{}
-	currentValue     interface{}
-	isSecret         bool
+	minValue          interface{}
+	maxValue          interface{}
+	allowedValues     []interface{}
+	disallowedValues  []interface{}
+	defaultValue      interface{}
+	currentValue      interface{}
+	targetValidators  []Validator
+	lengthValidators  []Validator
+	elementValidators []Validator
+	isSecret          bool
 }
 
 func NewConfigurator() Configurator {
@@ -52,8 +59,8 @@ func (c Configurator) WithLogger(logFn interface{}) Configurator {
 	return c
 }
 
-// WithLogSecret hides input and output values on log message.
-func (c Configurator) WithLogSecret() Configurator {
+// Secret hides input and output values on log message.
+func (c Configurator) Secret() Configurator {
 	c.isSecret = true
 	return c
 }
@@ -104,6 +111,30 @@ func (c Configurator) WithAllowed(values ...interface{}) Configurator {
 
 func (c Configurator) WithDisallowed(values ...interface{}) Configurator {
 	c.disallowedValues = values
+	return c
+}
+
+func (c Configurator) WithValidators(validators ...Validator) Configurator {
+	var targetValidators []Validator
+	targetValidators = append(targetValidators, c.targetValidators...)
+	targetValidators = append(targetValidators, validators...)
+	c.targetValidators = targetValidators
+	return c
+}
+
+func (c Configurator) WithLengthValidators(validators ...Validator) Configurator {
+	var lengthValidators []Validator
+	lengthValidators = append(lengthValidators, c.lengthValidators...)
+	lengthValidators = append(lengthValidators, validators...)
+	c.lengthValidators = lengthValidators
+	return c
+}
+
+func (c Configurator) WithElementValidators(validators ...Validator) Configurator {
+	var elementValidators []Validator
+	elementValidators = append(elementValidators, c.elementValidators...)
+	elementValidators = append(elementValidators, validators...)
+	c.elementValidators = elementValidators
 	return c
 }
 
@@ -212,6 +243,16 @@ func (c Configurator) convert(target interface{}) (Configurator, error) {
 	if c.disallowedValues, err = convertArray(target, c.disallowedValues); err != nil {
 		return c, fmt.Errorf("invalid disallowed values: %v", err)
 	}
+	if len(c.lengthValidators) > 0 {
+		if err := beWithLength(target); err != nil {
+			return c, fmt.Errorf("unexpected length validators: %v", err)
+		}
+	}
+	if len(c.elementValidators) > 0 {
+		if err := beEnumerable(target); err != nil {
+			return c, fmt.Errorf("unexpected element validators: %v", err)
+		}
+	}
 	return c, nil
 }
 
@@ -242,6 +283,29 @@ func (c Configurator) validate(target interface{}) error {
 	if len(c.disallowedValues) > 0 {
 		if hasEqual(target, c.disallowedValues) {
 			return fmt.Errorf(fmt.Sprintf("argument should not be in disallowed values [%v%v]", "'%v'", strings.Repeat(",'%v'", len(c.disallowedValues)-1)), c.disallowedValues...)
+		}
+	}
+	for i, validator := range c.targetValidators {
+		if err := validator.Validate(target); err != nil {
+			return fmt.Errorf("argument should be validated with validator at index '%v': %v", i, err)
+		}
+	}
+	if len(c.lengthValidators) > 0 {
+		length := getLength(target)
+		for i, validator := range c.lengthValidators {
+			if err := validator.Validate(length); err != nil {
+				return fmt.Errorf("argument length should be validated with validator at index '%v': %v", i, err)
+			}
+		}
+	}
+	if len(c.elementValidators) > 0 {
+		elements := getElements(target)
+		for i, element := range elements {
+			for j, validator := range c.elementValidators {
+				if err := validator.Validate(element); err != nil {
+					return fmt.Errorf("argument element at index '%v' should be validated with validator at index '%v': %v", i, j, err)
+				}
+			}
 		}
 	}
 	return nil

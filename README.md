@@ -1,6 +1,6 @@
 # Go-Config
 
-Flexible developer oriented configuration library.
+Flexible configuration package. Validate configuration with simple pattern.
 
 [![ci status][ci-status-badge]][ci-status-link]
 [![code coverage][codecov-badge]][codecov-link]
@@ -27,79 +27,56 @@ Flexible developer oriented configuration library.
 
 # Overview
 
-- Pointers configuration
-- Type convertion
-- Detailed errors
-- Logging
+A lot of features are supported:
+- Pointers configuration (compare values instead of pointers)
+- Type convertion (don't care about derived types)
+- Detailed errors (you see a field that is invalid and why)
+- Logging (provide your custom or default logger)
 
 # Install
 
 ```cmd
-go get github.com/mainden/go-config
+go get github.com/mainden/go-config/...
 ```
 
 # Quick Start
 
+Basically we have application config and a lot of validations. We can sipmlify a lot of lines of code with simple chained call. You don't need define many validation methods for every type, just use configuring package!
+
 ```go
-package main
-
-import (
-	"io"
-	"log"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
-
-	"github.com/mainden/go-config/configurator"
-)
-
+// AppConfig is our application config.
 type AppConfig struct {
-	UserName string
-	Token    string
-	Timeout  time.Duration
+	Address net.IP
+	Timeout time.Duration
 }
 
-func main() {
-	// Create new configurator or use configurator.Default.
-	configurator := configurator.NewConfigurator().WithLogger(log.Printf)
-
-	config := AppConfig{}
-	// UserName should not be empty. Use 'root' by default.
-	err := configurator.WithDisallowed("").WithDefault("root").Configure(&config.UserName)
-	if err != nil {
-		log.Fatal(err)
+// Configure is method to configure our application config.
+func Configure(config *AppConfig) error {
+	// We can define a default Address that should not be empty. Let's use the '127.0.0.1' by default for example.
+	if err := configuring.Default.WithName("Address").WithDisallowed(net.IP(nil)).WithDefault(net.IPv4(127, 0, 0, 1)).Configure(&config.Address); err != nil {
+		return err
 	}
-	// Token should not be empty. Don't log token value (secret).
-	err = configurator.WithDisallowed("").WithLogSecret().Configure(&config.Token)
-	if err != nil {
-		log.Fatal(err)
+	// Let's configure Timeout that should not be lower than second and should not be greater than minute.
+	if err := configuring.Default.WithName("Timeout").WithMin(time.Second).WithMax(time.Minute).Configure(&config.Timeout); err != nil {
+		return err
 	}
-	// Timeout should not be lower than second and should not be greater than minute.
-	err = configurator.WithMin(time.Second).WithMax(time.Minute).Configure(&config.Timeout)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client := http.Client{
-		Timeout: config.Timeout,
-	}
-	url, err := url.Parse("https://example.com/")
-	if err != nil {
-		log.Fatal(err)
-	}
-	request := &http.Request{
-		URL:    url,
-		Method: http.MethodPost,
-		Header: http.Header{
-			"UserName": {config.UserName},
-			"Token":    {config.Token},
-		},
-		Body: io.NopCloser(strings.NewReader("Some Data")),
-	}
-	_, err = client.Do(request)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return nil
 }
+```
+
+Now we can configure 'AppConfig' with the 'Configure' method.
+
+```go
+	var config AppConfig
+
+	// Configure(&config) => error: "configuration of 'Timeout' error: target value error: argument should be greater than or equal to '1s'"
+
+	config.Timeout = 2 * time.Second
+	// Value should be set to prevent previous error
+
+	Configure(&config) // no error
+	// Here we have 'config' that equal to AppConfig{Address: net.IPv4(127, 0, 0, 1), Timeout: 2 * time.Second}
+	// Log:
+	// configuration of 'Address': disallowed: ['<nil>'] default: '127.0.0.1' input: '<nil>' output: '127.0.0.1'
+	// configuration of 'Timeout': min: '1s' max: '1m0s' input: '2s' output: '2s'
 ```

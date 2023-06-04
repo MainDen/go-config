@@ -1,4 +1,4 @@
-package configurator
+package configuring
 
 import (
 	"context"
@@ -60,7 +60,7 @@ func TestConfigurator_WithLogger(t *testing.T) {
 	}
 }
 
-func TestConfigurator_WithLogSecret(t *testing.T) {
+func TestConfigurator_Secret(t *testing.T) {
 	calls := 0
 	err := NewConfigurator().WithLogger(func(format string, args ...interface{}) {
 		if message := fmt.Sprintf(format, args...); message != "configuration: input: '0' output: '0'" {
@@ -76,7 +76,7 @@ func TestConfigurator_WithLogSecret(t *testing.T) {
 			t.Errorf("expected '%v', was '%v'", "configuration: input: *secret* output: *secret*", message)
 		}
 		calls = calls + 1
-	}).WithLogSecret().Configure(new(int))
+	}).Secret().Configure(new(int))
 	if err != nil {
 		t.Errorf("expected '%v', was '%v'", error(nil), err)
 	}
@@ -298,6 +298,34 @@ func TestConfigurator_WithDisllowed(t *testing.T) {
 		}
 		calls = calls + 1
 	}).WithDisallowed(1, 2).Configure(new(int))
+	if err != nil {
+		t.Errorf("expected '%v', was '%v'", error(nil), err)
+	}
+	err = NewConfigurator().WithLogger(func(format string, args ...interface{}) {
+		calls = calls - 1
+	}).WithDisallowed(0, 1, 2).Configure(new(int))
+	if err == nil || err.Error() != "configuration error: target value error: argument should not be in disallowed values ['0','1','2']" {
+		t.Errorf("expected '%v', was '%v'", "configuration error: target value error: argument should not be in disallowed values ['0','1','2']", err)
+	}
+	err = NewConfigurator().WithLogger(func(format string, args ...interface{}) {
+		calls = calls - 1
+	}).WithDisallowed(1, 2, false).Configure(new(int))
+	if err == nil || err.Error() != "configuration error: invalid disallowed values: invalid element at index '2': argument of type 'bool' should be convertible to type 'int'" {
+		t.Errorf("expected '%v', was '%v'", "configuration error: disinvalid allowed values: invalid element at index '2': argument of type 'bool' should be convertible to type 'int'", err)
+	}
+	if calls != 1 {
+		t.Errorf("expected '%v', was '%v'", 1, calls)
+	}
+}
+
+func TestConfigurator_WithValidators(t *testing.T) {
+	calls := 0
+	err := NewConfigurator().WithLogger(func(format string, args ...interface{}) {
+		if message := fmt.Sprintf(format, args...); message != "configuration: input: '[1 2 3]' output: '[1 2 3]'" {
+			t.Errorf("expected '%v', was '%v'", "configuration: input: '[1 2 3]' output: '[1 2 3]'", message)
+		}
+		calls = calls + 1
+	}).WithValidators(NewConfigurator().WithAllowed([]int{1, 2, 3})).Configure(&[]int{1, 2, 3})
 	if err != nil {
 		t.Errorf("expected '%v', was '%v'", error(nil), err)
 	}
